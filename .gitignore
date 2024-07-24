@@ -1,3 +1,5 @@
+# Output
+song_output/*
 # MDX Models
 mdxnet_models/*.onnx
 
