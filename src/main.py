@@ -17,7 +17,7 @@ import yt_dlp
 from pedalboard import Pedalboard, Reverb, Compressor, HighpassFilter
 from pedalboard.io import AudioFile
 from pydub import AudioSegment
-
+from sql_models import StatusUpdate
 from mdx import run_mdx
 from rvc import Config, load_hubert, get_vc, rvc_infer
 
@@ -157,8 +157,9 @@ def get_hash(filepath):
 
 
 def display_progress(message, percent, is_webui,  cover_id, progress=None):
+    update = StatusUpdate(status_message=message, status_percentage=percent)
     if is_webui:
-        progress(cover_id, percent, desc=message)
+        progress(cover_id, update)
     else:
         print(message)      
 
@@ -272,7 +273,7 @@ def song_cover_pipeline(song_input, cover_id, voice_model, pitch_change, keep_fi
                 song_id = None
                 raise_exception(error_msg, is_webui)
         song_dir = os.path.join(output_dir, song_id)
-        cover_dir = os.path.join(song_dir, cover_id)
+        cover_dir = os.path.join(song_dir, f'{cover_id}')
         display_progress('[~] Starting AI Cover Generation Pipeline...', 0, is_webui, cover_id, progress)
         
     
