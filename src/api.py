@@ -88,19 +88,15 @@ def check_dupe_config(config : NewCoverCreate):
     with Session(engine) as session:
         statement = select(NewCover).where(NewCover.song_url == config.song_url, NewCover.voice_model == config.voice_model, NewCover.main_gain == config.main_gain, NewCover.inst_gain == config.inst_gain, NewCover.index_rate == config.index_rate, NewCover.filter_radius == config.filter_radius, NewCover.rms_mix_rate == config.rms_mix_rate, NewCover.f0_method == config.f0_method, NewCover.crepe_hop_length == config.crepe_hop_length, NewCover.protect == config.protect, NewCover.pitch_change_all == config.pitch_change_all, NewCover.reverb_rm_size == config.reverb_rm_size, NewCover.reverb_wet == config.reverb_wet, NewCover.reverb_dry == config.reverb_dry, NewCover.reverb_damping == config.reverb_damping)
         result = session.exec(statement)
-        dupe_config = result.first()
-        # print(f'result: {result}')
-        if(dupe_config != None):
-            return True
-        else:
-            return False
+        return result.first()
+   
   
 
 def create_psql_cover(options: NewCoverCreate):
     
-    dupe_exists = check_dupe_config(options)
-    if(dupe_exists):
-        return f'Dupe Cover Exists'
+    duplicate_cover = check_dupe_config(options)
+    if(duplicate_cover != None):
+        return duplicate_cover
     else:      
         psql_cover = NewCover.model_validate(options)
         with Session(engine) as session: 
@@ -175,7 +171,9 @@ def root(song_id):
     config = NewCoverCreate(**default_options)
  
     cover = create_psql_cover(config)
-    return f'ayyy lmao {cover}'
+    # cover.id
+    cover.valid
+    return f'ayyy lmao {cover.id}'
 
 @app.get('/cover/{song_id}')
 async def root(song_id):
