@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from main import song_cover_pipeline, output_dir
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import StreamingResponse, FileResponse
@@ -7,7 +7,7 @@ from models import SongCover, Status, Options, Song
 from datetime import datetime
 from sqlalchemy.orm import load_only
 import threading
-
+# import HTTPe
 import os
 from redis_om import NotFoundError
 from redis import ResponseError, Redis
@@ -59,6 +59,15 @@ class NewCover(ConfigBase, table=True):
     created_date: str = Field(index = True) 
     output_url: str | None = Field(index = True)
 
+class Status(SQLModel,table=True):
+     id: int | None = Field(default=None, primary_key=True)
+     message: str = Field(index=True)
+     percentage: float = Field(index=True)
+     cover_id: int | None = Field(default=None, foreign_key="newcover.id")
+
+class StatusUpdate(SQLModel):
+    message: str
+    percentage: float
 
 
 Index("idx_cover_config", NewCover.song_url, NewCover.voice_model, NewCover.main_gain, NewCover.inst_gain, NewCover.index_rate, NewCover.filter_radius, NewCover.rms_mix_rate, NewCover.f0_method, NewCover.crepe_hop_length, NewCover.protect, NewCover.pitch_change_all, NewCover.reverb_rm_size, NewCover.reverb_wet, NewCover.reverb_dry, NewCover.reverb_damping)
@@ -67,8 +76,17 @@ engine = create_engine(os.environ['PSQL_URL'], echo=True)
 SQLModel.metadata.create_all(engine)
 
     
+def read_cover_status(id):
+    with Session(engine) as session:
+     statement = select(Status).where(Status.cover_id == id)
+     cover_status = session.exec(statement).first()
+     if not cover_status: 
+        raise HTTPException(status_code=404, detail="status not found")
+     else:
+        return cover_status
 
-
+    #  status = session.get(Status, cover_id=id)
+    
 def update_cover_status(id, percent=float, desc=str):
     try:
         cover =  SongCover.get(id)
@@ -83,7 +101,17 @@ def update_cover_status(id, percent=float, desc=str):
     except NotFoundError:
         return {f"Error Updating Status: Cover Not Found"}
     
-
+def update_psql_cover_status(id, update: StatusUpdate):
+     db_status = read_cover_status(id)
+     with Session(engine) as session:
+        status_data = update.model_dump(exclude_unset=True)
+        db_status.sqlmodel_update(status_data)
+        session.add(db_status)
+        session.commit()
+        session.refresh(db_status)
+        print(db_status)
+        return db_status
+    
 def check_dupe_config(config : NewCoverCreate):
     with Session(engine) as session:
         statement = select(NewCover).where(NewCover.song_url == config.song_url, NewCover.voice_model == config.voice_model, NewCover.main_gain == config.main_gain, NewCover.inst_gain == config.inst_gain, NewCover.index_rate == config.index_rate, NewCover.filter_radius == config.filter_radius, NewCover.rms_mix_rate == config.rms_mix_rate, NewCover.f0_method == config.f0_method, NewCover.crepe_hop_length == config.crepe_hop_length, NewCover.protect == config.protect, NewCover.pitch_change_all == config.pitch_change_all, NewCover.reverb_rm_size == config.reverb_rm_size, NewCover.reverb_wet == config.reverb_wet, NewCover.reverb_dry == config.reverb_dry, NewCover.reverb_damping == config.reverb_damping)
@@ -102,7 +130,11 @@ def create_psql_cover(options: NewCoverCreate):
         with Session(engine) as session: 
             session.add(psql_cover)
             session.commit()
+            cover_status = Status(message='Created', percentage='0', cover_id=psql_cover.id)
+            session.add(cover_status)
+            session.commit()
             session.refresh(psql_cover)
+            
             return psql_cover
 
 def get_psql_covers():
@@ -172,7 +204,7 @@ def root(song_id):
  
     cover = create_psql_cover(config)
     # cover.id
-    cover.valid
+    # cover.valid
     return f'ayyy lmao {cover.id}'
 
 @app.get('/cover/{song_id}')
@@ -280,3 +312,15 @@ async def root(cover_id):
             yield from file_like
 
     return StreamingResponse(iterfile(), media_type='audio/mp3')
+
+@app.patch('/status/{cover_id}')
+def root(cover_id,  new_status: StatusUpdate):
+   status = update_psql_cover_status(cover_id, new_status)
+   return status
+
+@app.get('/status/{cover_id}')
+def root(cover_id):
+    status = read_cover_status(cover_id)
+    print(f'{status}')
+    return status
+    
