@@ -35,6 +35,7 @@ r = Redis(host='localhost', port = 6379, decode_responses=True, password='redisp
 
 class ConfigBase(SQLModel):
     voice_model: str = Field(index = True)
+    pitch_change: int
     main_gain: int 
     inst_gain: int 
     index_rate: float  
@@ -70,7 +71,7 @@ class StatusUpdate(SQLModel):
     percentage: float
 
 
-Index("idx_cover_config", NewCover.song_url, NewCover.voice_model, NewCover.main_gain, NewCover.inst_gain, NewCover.index_rate, NewCover.filter_radius, NewCover.rms_mix_rate, NewCover.f0_method, NewCover.crepe_hop_length, NewCover.protect, NewCover.pitch_change_all, NewCover.reverb_rm_size, NewCover.reverb_wet, NewCover.reverb_dry, NewCover.reverb_damping)
+Index("idx_cover_config", NewCover.song_url, NewCover.voice_model, NewCover.main_gain, NewCover.inst_gain, NewCover.index_rate, NewCover.filter_radius, NewCover.rms_mix_rate, NewCover.f0_method, NewCover.crepe_hop_length, NewCover.protect, NewCover.pitch_change_all, NewCover.reverb_rm_size, NewCover.reverb_wet, NewCover.reverb_dry, NewCover.reverb_damping, NewCover.pitch_change)
 
 engine = create_engine(os.environ['PSQL_URL'], echo=True)
 SQLModel.metadata.create_all(engine)
@@ -202,10 +203,23 @@ def root(song_id):
     }
     config = NewCoverCreate(**default_options)
  
-    cover = create_psql_cover(config)
-    # cover.id
-    # cover.valid
-    return f'ayyy lmao {cover.id}'
+    db_cover = create_psql_cover(config)
+    
+    threadkwargs = dump_to_pipline_kwargs(db_cover)
+    print(f'{threadkwargs}')
+    start_pipeline(threadkwargs)
+    return f'ayyy lmao {db_cover.id}'
+
+def dump_to_pipline_kwargs(cover: NewCover):
+    dump = cover.model_dump()
+    del dump['output_url'], dump['created_date'], dump['id'], dump['song_url']
+    # "progress": update_psql_cover_status }
+    dump.update({'song_input': f'https://youtube.com/watch?v={cover.song_url}', "output_format": 'mp3', "is_webui": False, "cover_id":cover.id, "keep_files": 0} )
+    return dump
+
+def start_pipeline(kwargs):
+    thread = threading.Thread(target=song_cover_pipeline, kwargs=kwargs)
+    thread.start()
 
 @app.get('/cover/{song_id}')
 async def root(song_id):
@@ -227,7 +241,7 @@ async def root(song_id):
         "reverb_wet": 0.2,
         "reverb_dry": 0.8,
         "reverb_damping": 0.7,
-        "output_url": 'mp3'
+        "output_format": 'mp3'
     }
 
         
