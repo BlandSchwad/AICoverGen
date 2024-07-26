@@ -186,6 +186,14 @@ def root(cover_id):
     
     return StreamingResponse(iterfile(), media_type='audio/mp3')
     
+@app.get('/psql/cover/{cover_id}/backing')
+def root(cover_id):
+    cover = read_psql_cover(cover_id)
+    backing_path = os.path.join(f'{output_dir}/{cover.song_url}/{cover_id}', "backing.mp3")
+    def iterfile():
+        with open(backing_path, mode='rb') as file_like:
+            yield from file_like
+    return StreamingResponse(iterfile(), media_type='audio/mp3')
 
 @app.patch('/status/{cover_id}')
 def root(cover_id,  new_status: StatusUpdate):
