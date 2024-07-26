@@ -18,7 +18,7 @@ load_dotenv()
 from fastapi.middleware.cors import CORSMiddleware
 
 from sqlmodel import Field, Session, SQLModel, create_engine, select, Index, Relationship
-from sql_models import ConfigBase, NewCoverCreate, NewCover, StatusUpdate
+from sql_models import NewCoverCreate, NewCover, StatusUpdate, engine
 
 origins = [
     "http://localhost:3000",
@@ -36,7 +36,6 @@ r = Redis(host='localhost', port = 6379, decode_responses=True, password='redisp
 
 
 
-engine = create_engine(os.environ['PSQL_URL'], echo=False)
 SQLModel.metadata.create_all(engine)
 
     
@@ -197,12 +196,11 @@ def root(cover_id,  new_status: StatusUpdate):
 @app.get('/status/{cover_id}')
 def root(cover_id):
     status = read_cover_status(cover_id)
-    print(f'{status}')
     return status
     
 @app.delete('/cover/{cover_id}')
 def root(cover_id):
-    delete_psql_cover(cover_id)
+   return delete_psql_cover(cover_id)
 
 @app.get('/cover/{cover_id}/info')
 def root(cover_id):
