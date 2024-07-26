@@ -171,6 +171,7 @@ def vocals_to_mp3(input_file, output_path):
 
 def preprocess_song(song_input, mdx_model_params, cover_id, is_webui, input_type, progress=None):
     keep_orig = False
+    song_id = get_youtube_video_id(song_input)
     if input_type == 'yt':
         display_progress('[~] Downloading song...', 0, is_webui, cover_id, progress)
         song_link = song_input.split('&')[0]
@@ -181,7 +182,7 @@ def preprocess_song(song_input, mdx_model_params, cover_id, is_webui, input_type
     else:
         orig_song_path = None
 
-    song_output_dir = os.path.join(output_dir, cover_id)
+    song_output_dir = os.path.join(output_dir, song_id)
     orig_song_path = convert_to_stereo(orig_song_path)
 
     display_progress('[~] Separating Vocals from Instrumental...', 0.1, is_webui, cover_id, progress)
@@ -280,7 +281,7 @@ def song_cover_pipeline(song_input, cover_id, voice_model, pitch_change, keep_fi
         if not os.path.exists(song_dir):
             os.makedirs(song_dir)
           
-            orig_song_path, vocals_path, instrumentals_path, main_vocals_path, backup_vocals_path, main_vocals_dereverb_path = preprocess_song(song_input, mdx_model_params, song_id, is_webui, input_type, progress)
+            orig_song_path, vocals_path, instrumentals_path, main_vocals_path, backup_vocals_path, main_vocals_dereverb_path = preprocess_song(song_input, mdx_model_params, cover_id, is_webui, input_type, progress)
 
         else:
            
@@ -289,7 +290,7 @@ def song_cover_pipeline(song_input, cover_id, voice_model, pitch_change, keep_fi
 
             # if any of the audio files aren't available or keep intermediate files, rerun preprocess
             if any(path is None for path in paths) or keep_files:
-                orig_song_path, vocals_path, instrumentals_path, main_vocals_path, backup_vocals_path, main_vocals_dereverb_path = preprocess_song(song_input, mdx_model_params, song_id, is_webui, input_type, progress)
+                orig_song_path, vocals_path, instrumentals_path, main_vocals_path, backup_vocals_path, main_vocals_dereverb_path = preprocess_song(song_input, mdx_model_params, cover_id, is_webui, input_type, progress)
             else:
                 orig_song_path, instrumentals_path, main_vocals_dereverb_path, backup_vocals_path = paths
 
